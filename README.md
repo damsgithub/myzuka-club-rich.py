@@ -16,6 +16,12 @@ Features included:
 TODO:
 * streaming mode?
 
+BUGS:
+* there is an exception while trying to download the cover the first time:
+      for buffer in u.iter_content(chunk_size=block_sz): => it says the content is already consumed
+* it is more difficult to interrupt the script with ctrl-c in Windows
+* the average download speed disapear after the download is complete
+
 Install:
 * install python 3 (tested with 3.6.2) if not already present on your distrib. For Windows, see here https://www.python.org/downloads/windows/
 * install required modules. Use your standard repo for linux, for Windows do in an administrator command prompt
