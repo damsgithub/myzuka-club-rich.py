@@ -510,10 +510,11 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
         if debug: print("** %s : download_file: keyboard interrupt detected **" % process_id, file=sys.stderr)
         raise e
     except Exception as e:
-        if debug: color_message('** Exception caught in download_file(%s,%s) with error: "%s". We will continue anyway. **' 
+        if debug: 
+            color_message('** Exception caught in download_file(%s,%s) with error: "%s". We will continue anyway. **' 
                % (url, file_name, str(e)), warning_color)
+            console.print_exception()
         #traceback.print_stack(file=sys.stderr)
-        console.print_exception()
         return -1
 
 
@@ -552,7 +553,7 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id)
             else:
                 break
         except KeyboardInterrupt:
-            if debug: print("** %s: keyboard interrupt detected, finishing process **" % process_id, file=sys.stderr)
+            if debug: print("** %s: download_song: keyboard interrupt detected, finishing process **" % process_id, file=sys.stderr)
             # just return, see: 
             # http://jessenoller.com/2009/01/08/multiprocessingpool-and-keyboardinterrupt/
             return
