@@ -140,13 +140,6 @@ def to_MB(a_bytes):
     return a_bytes / 1024. / 1024.
 
 
-def check_os():
-    if sys.platform.startswith('win'):
-        return "win"
-    else:
-        return "unix"
-
-
 def log_to_file(function, content):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         mylogname = "myzukalog-" + function + "-" + timestr + ".log"
@@ -157,24 +150,6 @@ def log_to_file(function, content):
 
 def color_message(msg, color):
     console.print(msg, style=color)
-
-"""     colors = {}
-    colors['yellow']       = "\033[0;33m"
-    colors[warning_color]  = "\033[1;33m"
-    colors['red']          = "\033[0;31m"
-    colors[error_color]     = "\033[1;31m"
-    colors['green']        = "\033[0;32m"
-    colors['lightgreen']   = "\033[1;32m"
-    colors['magenta']      = "\033[0;35m"
-    colors['clear']        = "\033[0;39m"
-    if (check_os() == "win"):
-        # Check if color is supported in cmd.exe
-        if(sys.getwindowsversion()[0] >= 10 and sys.getwindowsversion()[2] >= 10586):
-            os.system('') # enables VT100 Escape Sequence for WINDOWS 10 Ver. 1607
-        else:
-            print(msg)
-            return
-    print(colors[color] + msg + colors['clear']) """
 
 
 def dl_status(file_name, dlded_size, real_size):
@@ -196,6 +171,7 @@ def download_cover(page_content, url, debug, socks_proxy, socks_port, timeout, t
         color_message("** No cover found for this album **", warning_color)
     else:
         download_file(cover_url, covers_name, debug, socks_proxy, socks_port, timeout, task_id)
+
 
 def get_base_url(url, debug):
     # get website base address to preprend it to images, songs and albums relative urls'
@@ -384,6 +360,7 @@ def prepare_album_dir(page_content, base_path, debug):
 def sanitize_path(path):
     chars_to_remove = str.maketrans('/\\?*|":><', '         ')
     return path.translate(chars_to_remove)
+
 
 def get_filename_from_cd(cd):
     """
@@ -587,7 +564,6 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id)
             pass
 
 
-
 def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn):
     page_soup = get_page_soup(url, None, debug, socks_proxy, socks_port, timeout)
     if not page_soup:
@@ -771,6 +747,7 @@ def main():
         color_message("** Error: Cannot download URL: %s, reason: %s **" % (args.url, str(e)), error_color)
         #traceback.print_stack(file=sys.stderr)
         console.print_exception()
+
 
 if __name__ == "__main__":
     main()
