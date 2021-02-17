@@ -11,7 +11,7 @@ Features included:
 * Able to download all albums from an artist
 * Socks proxy support
 * Colored output
-* progress bars
+* progress bars with rich https://github.com/willmcgugan/rich
 
 TODO:
 * streaming mode?
