@@ -1,5 +1,6 @@
 # myzuka-club-rich.py
-Python 3 port of https://github.com/xor512/musicmp3spb.org with some differences.
+
+Myzuka downloader
 
 Features included:
 * support for the new site: myzuka.club
@@ -13,24 +14,26 @@ Features included:
 * Colored output
 * progress bars with rich https://github.com/willmcgugan/rich
 
+Inspired by https://github.com/xor512/musicmp3spb.org
+
 TODO:
 * streaming mode?
 
 BUGS:
-* there is an exception while trying to download the cover the first time:
-      for buffer in u.iter_content(chunk_size=block_sz): => it says the content is already consumed
 * it is more difficult to interrupt the script with ctrl-c in Windows
 * the average download speed disapear after the download is complete
 
 Install:
-* install python 3 (tested with 3.6.2) if not already present on your distrib. For Windows, see here https://www.python.org/downloads/windows/
+* install python 3 (tested with 3.6 and 3.9) if not already present on your distrib. For Windows, see here https://www.python.org/downloads/windows/
 * install required modules. Use your standard repo for linux, for Windows do in an administrator command prompt
 
 ```sh
 python -m pip install BeautifulSoup4 Pysocks requests cfscrape rich
 ```
 
-Note: you don't need to install requests and cfscrape if you set "userequests" to "0" at the start of the script. They are only usefull if you want to download through Tor socks proxy due to cloudflare detecting the script as a bot.
+Notes: 
+* you don't need to install requests and cfscrape if you set "userequests" to "0" at the start of the script. They are only usefull if you want to download through Tor socks proxy due to cloudflare detecting the script as a bot.
+* you need rich >= 9.12.1 due to bug https://github.com/willmcgugan/rich/issues/1061
 
 Usage:
 * Just give it an album or artist url from http://myzuka.club/ as argument, see below:
@@ -102,6 +105,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -d {0,1,2}, --debug {0,1,2}
                         Debug verbosity: 0, 1, 2
+  -l {0,1}
+                        Use live display (rich): 0, 1
   -s SOCKS, --socks SOCKS
                         Socks proxy: "address:port" without "http://"
   -t TIMEOUT, --timeout TIMEOUT
@@ -112,3 +117,4 @@ optional arguments:
   -v, --version         show program's version number and exit
   
 ```
+
