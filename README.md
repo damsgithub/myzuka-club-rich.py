@@ -1,11 +1,8 @@
 # myzuka-club-rich.py
 
-Myzuka downloader
-
-Features included:
-* support for the new site: myzuka.club
+Command line Myzuka downloader, features included:
 * Cover downloading
-* Windows/Linux support
+* Windows (powershell or cmd prompt) and Linux support
 * Resume incomplete songs and albums downloads
 * Creation of directory with "Artist - Album (year)" name.
 * Multiple simultaneous downloads to download faster
@@ -39,7 +36,7 @@ Usage:
 * Just give it an album or artist url from http://myzuka.club/ as argument, see below:
 
 ```
-Python script to download albums from http://myzuka.club, version 5.7.
+Python script to download albums from http://myzuka.club, version 5.8.
 
 ------------------------------------------------------------------------------------------------------------------
 ################## To download an album, give it an url with '/Album/' in it #####################################
