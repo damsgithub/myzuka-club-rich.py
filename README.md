@@ -18,7 +18,6 @@ TODO:
 
 BUGS:
 * it is more difficult to interrupt the script with ctrl-c in Windows
-* the average download speed disapear after the download is complete
 
 Install:
 * install python 3 (tested with 3.6 and 3.9) if not already present on your distrib. For Windows, see here https://www.python.org/downloads/windows/
