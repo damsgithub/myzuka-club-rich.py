@@ -6,22 +6,27 @@
 # as published by Sam Hocevar.  See the COPYING file for more details.
 
 # Changelog:
+# 5.10: corrections, cosmetic
 # 5.9: corrections, cosmetic
 # 5.8: better rich interface
 # 5.7: add support for "rich" output and changed the multithreading module
-# 5.6: better support for Tor socks proxy, and support for "requests" module instead of "urllib.request", because
-# cloudflare seems to block more "urllib.request" than "requests", even with the same headers...
+# 5.6: better support for Tor socks proxy, and support for "requests" module instead of 
+#      "urllib.request", because cloudflare seems to block more "urllib.request" than "requests", 
+#      even with the same headers...
 
 live = 1
 site = "http://myzuka.club"
 userequests = 1
-version = 5.9
-useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36"
+version = 5.10
+useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"
+min_page_size = 8192
 covers_name = "cover.jpg"
 warning_color = "bold yellow"
 error_color = "bold red"
 ok_color = "bold green"
 debug_color = "bold blue"
+min_retry_delay = 3
+max_retry_delay = 10
 
 import re
 import sys
@@ -36,9 +41,6 @@ import traceback
 import signal
 from bs4 import BeautifulSoup
 from datetime import datetime
-import urllib.request
-import cfscrape
-import requests
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
@@ -51,11 +53,15 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.live import Live
 from rich.console import Console
+# from rich.text import Text
+# from rich.align import Align
 
 # from rich import inspect
-# Rich can be installed as the default traceback handler so that all uncaught exceptions will be rendered with highlighting.
+# Rich can be installed as the default traceback handler so that all 
+# uncaught exceptions will be rendered with highlighting.
 # from rich.traceback import install
 # install()
+
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -75,7 +81,8 @@ class Header:
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="right")
         grid.add_row(
-            "[b]Music[/b] downloader, use Ctrl-c to exit (in Windows, you sometimes have to kill/close the console)",
+            "[b]Music[/b] downloader, use Ctrl-c to exit (in Windows, "
+            + "you sometimes have to kill/close the console)",
             datetime.now().ctime().replace(":", "[blink]:[/]"),
         )
         return Panel(grid, style="white on black")
@@ -102,6 +109,8 @@ layout = make_layout()
 console = Console()
 infos_table = Table(show_header=False)
 errors_table = Table(show_header=False)
+errors_console = Console()
+#errors_text = Text()
 progress_table = Table.grid(expand=True)
 dl_progress = Progress()
 
@@ -109,7 +118,7 @@ dl_progress = Progress()
 def reset_errors():
     global errors_table
     errors_table = Table(show_header=False)
-    layout["right"].update(Panel(errors_table))
+    #layout["right"].update(Panel(errors_table))
 
 
 def reset_progress():
@@ -143,9 +152,7 @@ def reset_progress():
 
 def script_help(version, script_name):
     description = "Python script to download albums from %s, version %s." % (site, version)
-    help_string = (
-        description
-        + """
+    help_string = (description + """
 
 ------------------------------------------------------------------------------------------------------------------
 ################## To download an album, give it an url with '/Album/' in it #####################################
@@ -214,6 +221,10 @@ For more info, see https://github.com/damsgithub/myzuka-club.py
     return help_string
 
 
+def pause_between_retries():
+    time.sleep(random.randint(min_retry_delay, max_retry_delay))
+
+
 def to_MB(a_bytes):
     return a_bytes / 1024.0 / 1024.0
 
@@ -228,10 +239,19 @@ def log_to_file(function, content):
 
 def color_message(msg, color):
     if live:
+        # Text test
         # layout["right"].update(
-        #     Align.center(errors_text.append(msg + "\n", style=color), vertical="bottom")
+        #     Align.center(errors_text.append(datetime.now().ctime() + " " + msg + "\n", style=color),
+        #     vertical="bottom")
         # )
-        # layout["right"].update(errors_text)
+        #layout["right"].update(errors_text)
+        
+        ## Console test
+        # with errors_console.pager():
+        #     errors_console.print(msg)
+        # layout["right"].update(errors_console)
+
+        # Table test
         errors_table.add_row("[" + color + "]" + msg)
         layout["right"].update(Panel(errors_table))
     else:
@@ -284,7 +304,7 @@ def open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_he
         # else: color_message("open_url: NOT SET", error_color)
 
         if not userequests:
-
+            import urllib.request
             if debug:
                 color_message("open_url: %s" % url, debug_color)
 
@@ -299,30 +319,36 @@ def open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_he
                     color_message("HTTP reponse code: %s" % u, debug_color)
             except urllib.error.HTTPError as e:
                 if debug:
-                    color_message("** urllib.error.HTTPError (%s), reconnecting **" % e.reason, warning_color)
-                time.sleep(random.randint(3, 10))
+                    color_message("** urllib.error.HTTPError (%s), reconnecting **" 
+                        % e.reason, warning_color)
+                pause_between_retries()
                 continue
             except urllib.error.URLError as e:
                 if re.search("timed out", str(e.reason)):
                     # on linux "timed out" is a socket.timeout exception,
                     # on Windows it is an URLError exception....
                     if debug:
-                        color_message("** Connection timeout (%s), reconnecting **" % e.reason, warning_color)
-                    time.sleep(random.randint(3, 10))
+                        color_message("** Connection timeout (%s), reconnecting **" 
+                            % e.reason, warning_color)
+                    pause_between_retries()
                     continue
                 else:
                     color_message("** urllib.error.URLError, aborting **" % e.reason, error_color)
                     u = None
             except (socket.timeout, socket.error, ConnectionError) as e:
                 if debug:
-                    color_message("** Connection problem 2 (%s), reconnecting **" % str(e), warning_color)
-                time.sleep(random.randint(3, 10))
+                    color_message("** Connection problem 2 (%s), reconnecting **" 
+                        % str(e), warning_color)
+                pause_between_retries()
                 continue
             except Exception as e:
-                color_message("** Exception: aborting (%s) with error: %s **" % (url, str(e)), error_color)
+                color_message("** Exception: aborting (%s) with error: %s **" 
+                    % (url, str(e)), error_color)
                 u = None
 
         else:
+            import cfscrape
+            import requests
             scraper = cfscrape.create_scraper()
             # the "h" after socks5 is to make the dns resolution through the socks proxy
             if socks_proxy and socks_port:
@@ -347,26 +373,32 @@ def open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_he
                 if debug > 1:
                     color_message("HTTP reponse code: %s" % u, debug_color)
             except requests.exceptions.HTTPError as e:
-                color_message("** requests.exceptions.HTTPError (%s), reconnecting **" % str(e), warning_color)
-                time.sleep(random.randint(3, 10))
+                color_message("** requests.exceptions.HTTPError (%s), reconnecting **" 
+                    % str(e), warning_color)
+                pause_between_retries()
                 continue
             except requests.exceptions.ConnectionError as e:
-                color_message("**  requests.exceptions.ConnectionError (%s), reconnecting **" % str(e), warning_color)
-                time.sleep(random.randint(3, 10))
+                color_message("**  requests.exceptions.ConnectionError (%s), reconnecting **" 
+                    % str(e), warning_color)
+                pause_between_retries()
                 continue
             except requests.exceptions.Timeout as e:
-                color_message("** Connection timeout (%s), reconnecting **" % str(e), warning_color)
-                time.sleep(random.randint(3, 10))
+                color_message("** Connection timeout (%s), reconnecting **" 
+                    % str(e), warning_color)
+                pause_between_retries()
                 continue
             except requests.exceptions.RequestException as e:
-                color_message("** Exception: aborting (%s) with error: %s **" % (url, str(e)), error_color)
+                color_message("** Exception: aborting (%s) with error: %s **" 
+                    % (url, str(e)), error_color)
                 u = None
             except (socket.timeout, socket.error, ConnectionError) as e:
-                color_message("** Connection problem 2 (%s), reconnecting **" % str(e), warning_color)
-                time.sleep(random.randint(3, 10))
+                color_message("** Connection problem 2 (%s), reconnecting **" 
+                    % str(e), warning_color)
+                pause_between_retries()
                 continue
             except Exception as e:
-                color_message("** Exception: aborting (%s) with error: %s **" % (url, str(e)), error_color)
+                color_message("** Exception: aborting (%s) with error: %s **" 
+                    % (url, str(e)), error_color)
                 u = None
 
         return u
@@ -491,15 +523,18 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
                 file_name = u.info().get_filename()
             else:
                 file_name = get_filename_from_cd(u.headers.get("content-disposition"))
+        
+        file_name = file_name.replace("_myzuka", "")
+        
         if debug > 1:
             color_message("filename: %s" % file_name, debug_color)
-        file_name = file_name.replace("_myzuka", "")
-
+                
         if os.path.exists(file_name):
             dlded_size = os.path.getsize(file_name)
-        if dlded_size <= 8192:
-            # we may have downloaded an "Exceed the download limit" (Превышение лимита скачивания) page
-            # instead of the song, restart at beginning.
+
+        if dlded_size <= min_page_size and file_name != covers_name:
+            # we may have got an "Exceed the download limit" (Превышение лимита скачивания) 
+            # page instead of the song, better restart at beginning.
             dlded_size = 0
 
         i = 0
@@ -511,14 +546,16 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
                     real_size = int(u.headers["Content-length"])
                 if debug > 1:
                     color_message("length: %s" % real_size, debug_color)
-                if real_size <= 1024:
-                    # we got served an "Exceed the download limit" (Превышение лимита скачивания) page,
-                    # retry without incrementing counter (for musicmp3spb)
-                    if debug:
-                        color_message(
-                            "** File size too small (<1024), might be an error, please verify manually **",
-                            warning_color,
-                        )
+                if real_size <= min_page_size and (file_name != covers_name):
+                    # we may have got an "Exceed the download limit" (Превышение лимита скачивания)
+                    # page, retry
+                    color_message(
+                        "** Served file (%s) too small (<= %s), retrying (verify this file after download) **"
+                        % (file_name, min_page_size),
+                        warning_color
+                    )
+                    i += 1
+                    continue
                 break
             except Exception as e:
                 if i == 4:
@@ -533,7 +570,8 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
                     i += 1
                     if debug:
                         color_message(
-                            "** %s problem while getting content-length: %s, retrying **" % (process_id, str(e)),
+                            "** %s problem while getting content-length: %s, retrying **" 
+                                % (process_id, str(e)),
                             warning_color,
                         )
                     continue
@@ -561,7 +599,8 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
             else:
                 if debug:
                     color_message(
-                        "** Range/partial download is not supported by server, restarting download at beginning **",
+                        "** Range/partial download is not supported by server, "
+                        + "restarting download at beginning **",
                         warning_color,
                     )
                 dlded_size = 0
@@ -574,15 +613,13 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
             return
         elif dlded_size > real_size:
             # we got a problem, restart download from start
-            if debug:
-                color_message(
-                    "** Downloaded size (%s) bigger than the real size (%s) of %s. Either real size "
-                    + "could not be found or an other problem occured, retrying **"
-                    % (dlded_size, real_size, file_name),
-                    warning_color,
-                )
+            color_message(f"** {file_name} is already bigger ({dlded_size}) than the server side "
+                            f"file ({real_size}). Either server side file size could not be determined "
+                            f"or an other problem occured, check file manually **",
+                warning_color
+            )
             u.close()
-            return -1
+            return
 
         # show progress
         dl_progress.start_task(task_id)
@@ -599,7 +636,8 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
 
         # get the file
         if not userequests:
-            for buffer in u.read(block_sz):
+            while True:
+                buffer = u.read(block_sz)
                 if not buffer:
                     break
                 else:
@@ -643,7 +681,8 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
         elif dlded_size < real_size:
             if debug:
                 color_message(
-                    "%s (file download incomplete, retrying)" % dl_status(file_name, dlded_size, real_size),
+                    "%s (file download incomplete, retrying)" 
+                    % dl_status(file_name, dlded_size, real_size),
                     warning_color,
                 )
             u.close()
@@ -654,7 +693,8 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
         f.close()
     except KeyboardInterrupt as e:
         if debug:
-            color_message("** %s : download_file: keyboard interrupt detected **" % process_id, error_color)
+            color_message("** %s : download_file: keyboard interrupt detected **" 
+                % process_id, error_color)
         raise e
     except Exception as e:
         if debug:
@@ -663,7 +703,7 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
                 % (url, file_name, str(e)),
                 warning_color,
             )
-            # traceback.print_exc()
+            traceback.print_exc()
         return -1
 
 
@@ -681,13 +721,16 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
 
             if debug:
                 color_message("%s: downloading song from %s" % (process_id, url), debug_color)
+
             file_name = ""
             file_url = ""
 
             page_soup = get_page_soup(url, None, debug, socks_proxy, socks_port, timeout, event)
             if not page_soup:
                 if debug:
-                    color_message("** %s: Unable to get song's page soup, retrying **" % process_id, debug_color)
+                    color_message("** %s: Unable to get song's page soup, retrying **" 
+                        % process_id, debug_color)
+                pause_between_retries()
                 continue
 
             # get the file url
@@ -704,9 +747,11 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
             if ret == -1:
                 if debug:
                     color_message(
-                        "** %s: Problem detected while downloading %s, retrying **" % (process_id, file_name),
+                        "** %s: Problem detected while downloading %s, retrying **" 
+                        % (process_id, file_name),
                         warning_color,
                     )
+                pause_between_retries()
                 continue
             else:
                 if not live:
@@ -715,7 +760,8 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
         except KeyboardInterrupt:
             if debug:
                 color_message(
-                    "** %s: download_song: keyboard interrupt detected, finishing process **" % process_id, 
+                    "** %s: download_song: keyboard interrupt detected, finishing process **" 
+                    % process_id,
                     error_color
                 )
             raise
@@ -726,6 +772,7 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
                     % (process_id, url, file_name, str(e)),
                     warning_color,
                 )
+            pause_between_retries()
             pass
 
 
@@ -739,7 +786,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
         return
     page_content = str(page_soup)
 
-    # Beautifulsoup converts "&" to "&amp;" so that it be valid html. We need to convert them back with html.unescape.
+    # Beautifulsoup converts "&" to "&amp;" so that it be valid html. 
+    # We need to convert them back with html.unescape.
     page_content = html.unescape(page_content)
 
     album_dir = prepare_album_dir(page_content, base_path, debug)
@@ -826,7 +874,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
         trackname = deleted_track[1]
         if debug:
             color_message(
-                "** The track number %s (%s) is absent from website **" % (tracknum, trackname), warning_color
+                "** The track number %s (%s) is absent from website **" 
+                % (tracknum, trackname), warning_color
             )
         absent_track_flag = 1
 
@@ -846,7 +895,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
             pool.shutdown()
         except KeyboardInterrupt as e:
             if debug:
-                color_message("** download_album: Program interrupted by user, exiting! **", error_color)
+                color_message("** download_album: Program interrupted by user, exiting! **", 
+                    error_color)
             # pool.terminate()
             # pool.join()
             # pool.shutdown()
@@ -865,7 +915,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     if not absent_track_flag and not event.is_set():
         infos_table.add_row("[" + ok_color + "]" + "** %s FINISHED **" % album_dir)
     else:
-        infos_table.add_row("[" + error_color + "]" + "** %s INCOMPLETE (tracks missing on website or user exit) **" % album_dir)
+        infos_table.add_row("[" + error_color + "]" 
+            + "** %s INCOMPLETE (tracks missing on website or user exit) **" % album_dir)
     layout["left"].update(Panel(infos_table))
 
 
@@ -876,7 +927,8 @@ def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_
             color_message("** Unable to get artist's page soup **", error_color)
         return
 
-    color_message("** Warning: we are going to download all albums from this artist! **", warning_color)
+    color_message("** Warning: we are going to download all albums from this artist! **", 
+        warning_color)
 
     albums_links = []
     for link in page_soup.find_all("a", href=True):
@@ -893,8 +945,6 @@ def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_
             # color_message("** download_artist: IS SET", error_color)
             raise KeyboardInterrupt
 
-    # color_message("", ok_color)
-    # color_message("ARTIST DOWNLOAD FINISHED", ok_color)
     infos_table.add_row("[" + ok_color + "]" + "** ARTIST DOWNLOAD FINISHED **")
     layout["left"].update(Panel(infos_table))
 
@@ -911,6 +961,7 @@ def main():
 
     event = threading.Event()
 
+    # "event" not being global, we need to define this function in this scope
     def signal_handler(signum, frame):
         event.set()
         color_message("SIGINT received, waiting to exit threads", error_color)
@@ -921,15 +972,22 @@ def main():
         description=script_help(version, script_name), add_help=True, formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument("-d", "--debug", type=int, choices=range(0, 3), default=0, help="Debug verbosity: 0, 1, 2")
-    parser.add_argument("-l", "--live", type=int, choices=range(0, 2), default=1, help="Use live display (rich): 0, 1")
-    parser.add_argument("-s", "--socks", type=str, default=None, help='Socks proxy: "address:port" without "http://"')
-    parser.add_argument("-t", "--timeout", type=int, default=10, help="Timeout for HTTP connections in seconds")
-    parser.add_argument("-n", "--nb_conn", type=int, default=3, help="Number of simultaneous downloads (max 3 for tempfile.ru)")
-    parser.add_argument("-p", "--path", type=str, default=".", help="Base directory in which album(s) will be downloaded. Defaults to current.")
+    parser.add_argument("-d", "--debug", type=int, choices=range(0, 3), default=0, 
+                        help="Debug verbosity: 0, 1, 2")
+    parser.add_argument("-l", "--live", type=int, choices=range(0, 2), default=1, 
+                        help="Use live display (rich): 0, 1")
+    parser.add_argument("-s", "--socks", type=str, default=None, 
+                        help='Socks proxy: "address:port" without "http://"')
+    parser.add_argument("-t", "--timeout", type=int, default=10, 
+                        help="Timeout for HTTP connections in seconds")
+    parser.add_argument("-n", "--nb_conn", type=int, default=3, 
+                        help="Number of simultaneous downloads (max 3 for tempfile.ru)")
+    parser.add_argument("-p", "--path", type=str, default=".", 
+                        help="Base directory in which album(s) will be downloaded. Defaults to current.")
     parser.add_argument("-v", "--version", action="version", version="%(prog)s, version: " + str(version))
 
     parser.add_argument("url", action="store", help="URL of album or artist page")
+
     args = parser.parse_args()
 
     debug = int(args.debug)
@@ -956,15 +1014,16 @@ def main():
 
         if live:
             with Live(layout, refresh_per_second=4, vertical_overflow="visible"):
-                # modification and access of "global" variables do not work correctly under Windows with multiprocessing,
-                # so I have to pass all these parameters to these functions...
+                # modification and access of "global" variables do not work correctly under Windows 
+                # with multiprocessing, so I have to pass all these parameters to these functions...
                 if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
                     download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
                 elif re.search(r"/Album/.*", args.url, re.IGNORECASE):
                     download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
                 else:
                     color_message(
-                        "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **", error_color
+                        "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
+                        error_color
                     )
         else:
             if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
@@ -973,7 +1032,8 @@ def main():
                 download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
             else:
                 color_message(
-                    "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **", error_color
+                    "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
+                    error_color
                 )
 
     except Exception as e:
