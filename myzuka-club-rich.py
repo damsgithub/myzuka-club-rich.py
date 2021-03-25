@@ -151,7 +151,7 @@ def reset_progress():
 
 
 def script_help(version, script_name):
-    description = "Python script to download albums from %s, version %s." % (site, version)
+    description = "Python script to download albums from %s, version %.2f." % (site, version)
     help_string = (description + """
 
 ------------------------------------------------------------------------------------------------------------------
