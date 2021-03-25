@@ -17,7 +17,7 @@ TODO:
 * streaming mode?
 
 BUGS:
-* it is more difficult to interrupt the script with ctrl-c in Windows
+* it is more difficult to interrupt the script with ctrl-c in Windows with latests Python version, even with [this bug](https://bugs.python.org/issue42296) corrected.
 
 Install:
 * install python 3 (tested with 3.6 and 3.9) if not already present on your distrib. For Windows, see here https://www.python.org/downloads/windows/
