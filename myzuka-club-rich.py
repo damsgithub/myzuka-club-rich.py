@@ -905,8 +905,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
             exit(1)
         except Exception as e:
             color_message(
-                '** %s: Exception caught in download_album(%s,%s) with error: "%s", retrying **'
-                % (process_id, url, file_name, str(e)),
+                '** Exception caught in download_album(%s) with error: "%s", retrying **'
+                % (url, str(e)),
                 warning_color,
             )
 
