@@ -96,11 +96,10 @@ def make_layout() -> Layout:
         Layout(name="header", size=3),
         Layout(name="main", ratio=1),
     )
-    layout["main"].split(
+    layout["main"].split_row(
         Layout(name="left"),
         Layout(name="center", ratio=2),
         Layout(name="right", ratio=1),
-        direction="horizontal",
     )
     return layout
 
@@ -429,16 +428,16 @@ def prepare_album_dir(page_content, base_path, debug):
 
     # find artist name
     artist_info_re = re.compile(
-        "<td>Исполнитель:</td>\r?\n?"
-        "(?:\s)*<td>\r?\n?"
-        "(?:\r?\n?)*"
-        "(?:\s)*<a (?:.+?)>\r?\n?"
+        '<td>Исполнитель:</td>\r?\n?'
+        '(?:\s)*<td>\r?\n?'
+        '(?:\r?\n?)*'
+        '(?:\s)*<a (?:.+?)>\r?\n?'
         '(?:\s)*<meta (?:.+?)itemprop="url"(?:.*?)(?:\s)*/>\r?\n?'
         '(?:\s)*<meta (?:.+?)itemprop="name"(?:.*?)(?:\s)*/>\r?\n?'
-        "(?:\r?\n?)*"
-        "(?:\s)*(.+?)\r?\n?"
-        "(?:\r?\n?)*"
-        "(?:\s)*</a>"
+        '(?:\r?\n?)*'
+        '(?:\s)*(.+?)\r?\n?'
+        '(?:\r?\n?)*'
+        '(?:\s)*</a>'
     )
     artist_info = artist_info_re.search(page_content)
 
@@ -450,9 +449,9 @@ def prepare_album_dir(page_content, base_path, debug):
     # find album name
     title_info_re = re.compile(
         '<span itemprop="title">(?:.+?)</span>\r?\n?'
-        "(?:\r?\n?)*"
-        "(?:\s)*</a>/\r?\n?"
-        "(?:\r?\n?)*"
+        '(?:\r?\n?)*'
+        '(?:\s)*</a>/\r?\n?'
+        '(?:\r?\n?)*'
         '(?:\s)*<span (?:.*?)itemtype="http://data-vocabulary.org/Breadcrumb"(?:.*?)>(.+?)</span>'
     )
     title_info = title_info_re.search(page_content)
@@ -711,10 +710,10 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
     process_id = os.getpid()
 
     m = re.match(r"^(\d+)-(.+)", num_and_url)
-    tracknum = m.group(1)
+    #tracknum = m.group(1)
     url = m.group(2)
 
-    while True:  # continue until we have the song
+    while True:  # continue until we have the song or the user interrupts it
         try:
             if event.is_set():
                 raise KeyboardInterrupt
@@ -815,10 +814,10 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
 
         tracknum_infos_re = re.compile(
             '<div class="position">\r?\n?'
-            "(?:\r?\n?)*"
-            "(?:\s)*(\d+)\r?\n?"
-            "(?:\r?\n?)*"
-            "(?:\s)*</div>\r?\n?"
+            '(?:\r?\n?)*'
+            '(?:\s)*(\d+)\r?\n?'
+            '(?:\r?\n?)*'
+            '(?:\s)*</div>\r?\n?'
             '(?:\s)*<div class="options">\r?\n?'
             '(?:\s)*<div class="top">\r?\n?'
             '(?:\s)*<span (?:.+?)title="Сохранить в плейлист"(?:.*?)></span>\r?\n?'
@@ -849,24 +848,24 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     # search for absent/deleted tracks from the website.
     deleted_track_re = re.compile(
         r'<div class="position">\r?\n?'
-        "(?:\r?\n?)?"
-        "(?:\s)*(\d+)\r?\n?"
-        "(?:\r\n?)?"
-        "(?:\s)*</div>\r?\n?"
+        '(?:\r?\n?)?'
+        '(?:\s)*(\d+)\r?\n?'
+        '(?:\r\n?)?'
+        '(?:\s)*</div>\r?\n?'
         '(?:\s)*<div class="options">\r?\n?'
         '(?:\s)*<div class="top">\r?\n?'
         '(?:\s)*<span class=".*?glyphicon-ban-circle.*?"></span>\r?\n?'
-        "(?:\s)*</div>\r?\n?"
+        '(?:\s)*</div>\r?\n?'
         '(?:\s)*<div class="data">(?:.+?)</div>\r?\n?'
-        "(?:\s)*</div>\r?\n?"
+        '(?:\s)*</div>\r?\n?'
         '(?:\s)*<div class="details">\r?\n?'
         '(?:\s)*<div class="time">(?:.+?)</div>\r?\n?'
-        "(?:\s)*<a (?:.+?)\r?\n?"
-        "(?:\s)*<meta (?:.+?)\r?\n?"
-        "(?:\s)*<meta (?:.+?)\r?\n?"
-        "(?:\s)*</span>\r?\n?"
-        "(?:\s)*<p>\r?\n?"
-        "(?:\s)*<span>(.+?)</span> <span class=(?:.+?)>\[Удален по требованию правообладателя\]</span>"
+        '(?:\s)*<a (?:.+?)\r?\n?'
+        '(?:\s)*<meta (?:.+?)\r?\n?'
+        '(?:\s)*<meta (?:.+?)\r?\n?'
+        '(?:\s)*</span>\r?\n?'
+        '(?:\s)*<p>\r?\n?'
+        '(?:\s)*<span>(.+?)</span> <span class=(?:.+?)>\[Удален по требованию правообладателя\]</span>'
     )
 
     for deleted_track in re.findall(deleted_track_re, page_content):
