@@ -29,7 +29,7 @@ python -m pip install BeautifulSoup4 Pysocks requests cfscrape rich
 
 Notes: 
 * you don't need to install requests and cfscrape if you set "userequests" to "0" at the start of the script. They are only usefull if you want to download through Tor socks proxy due to cloudflare more ofently detecting the script as a bot with urllib.request (even with the same useragent).
-* you need rich >= 9.12.1 due to [this bug](https://github.com/willmcgugan/rich/issues/1061)
+* you need rich >= 10.0.0
 
 Usage:
 * Just give it an album or artist url from http://myzuka.club/ as argument, see below:
