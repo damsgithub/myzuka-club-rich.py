@@ -1,5 +1,8 @@
 # myzuka-club-rich.py
 
+
+If Myzuka is down, you can try this new grabber: https://github.com/damsgithub/musify-club-rich.py
+
 Command line Myzuka downloader, features included:
 * Cover downloading
 * Windows (powershell or cmd prompt) and Linux support
