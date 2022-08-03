@@ -415,7 +415,7 @@ def get_page_soup(url, data, debug, socks_proxy, socks_port, timeout, event):
     return page_soup
 
 
-def prepare_album_dir(page_content, base_path, debug):
+def prepare_album_dir(page_url, page_content, base_path, debug, with_album_id):
     # get album infos from html page content
     artist = ""
     title = ""
@@ -425,6 +425,8 @@ def prepare_album_dir(page_content, base_path, debug):
         log_to_file("prepare_album_dir", page_content)
 
     color_message("", ok_color)
+
+    album_id =  re.compile('Album/(\d+)').search(page_url).group(1)
 
     # find artist name
     artist_info_re = re.compile(
@@ -475,10 +477,11 @@ def prepare_album_dir(page_content, base_path, debug):
     layout["left"].update(Panel(infos_table))
 
     # prepare album's directory
+    album_id_prefix = (album_id + " – " if with_album_id else "")
     if year:
-        album_dir = artist + " - " + title + " (" + year + ")"
+        album_dir = album_id_prefix + artist + " - " + title + " (" + year + ")"
     else:
-        album_dir = artist + " - " + title
+        album_dir = album_id_prefix + artist + " - " + title
 
     album_dir = os.path.normpath(base_path + os.sep + sanitize_path(album_dir))
     if debug:
@@ -775,7 +778,7 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
             pass
 
 
-def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, event):
+def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event):
     reset_errors()
     reset_progress()
 
@@ -789,7 +792,7 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     # We need to convert them back with html.unescape.
     page_content = html.unescape(page_content)
 
-    album_dir = prepare_album_dir(page_content, base_path, debug)
+    album_dir = prepare_album_dir(url, page_content, base_path, debug, with_album_id)
 
     os.chdir(album_dir)
 
@@ -919,7 +922,7 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     layout["left"].update(Panel(infos_table))
 
 
-def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, event):
+def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event):
     page_soup = get_page_soup(url, str.encode(""), debug, socks_proxy, socks_port, timeout, event)
     if not page_soup:
         if debug:
@@ -938,7 +941,7 @@ def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_
 
     for album_link in albums_links:
         download_album(
-            get_base_url(url, debug) + album_link, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, event
+            get_base_url(url, debug) + album_link, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event
         )
         if event.is_set():
             # color_message("** download_artist: IS SET", error_color)
@@ -983,6 +986,8 @@ def main():
                         help="Number of simultaneous downloads (max 3 for tempfile.ru)")
     parser.add_argument("-p", "--path", type=str, default=".", 
                         help="Base directory in which album(s) will be downloaded. Defaults to current.")
+    parser.add_argument("--with_album_id", action=argparse.BooleanOptionalAction,
+                        help="Include the myzuka album ID in the directory name.")
     parser.add_argument("-v", "--version", action="version", version="%(prog)s, version: " + str(version))
 
     parser.add_argument("url", action="store", help="URL of album or artist page")
@@ -996,6 +1001,7 @@ def main():
     nb_conn = int(args.nb_conn)
     timeout = int(args.timeout)
     live = int(args.live)
+    with_album_id = bool(args.with_album_id)
 
     if args.socks:
         (socks_proxy, socks_port) = args.socks.split(":")
@@ -1016,9 +1022,9 @@ def main():
                 # modification and access of "global" variables do not work correctly under Windows 
                 # with multiprocessing, so I have to pass all these parameters to these functions...
                 if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
-                    download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
+                    download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
                 elif re.search(r"/Album/.*", args.url, re.IGNORECASE):
-                    download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
+                    download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
                 else:
                     color_message(
                         "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
@@ -1026,9 +1032,9 @@ def main():
                     )
         else:
             if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
-                download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
+                download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
             elif re.search(r"/Album/.*", args.url, re.IGNORECASE):
-                download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, event)
+                download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
             else:
                 color_message(
                     "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
