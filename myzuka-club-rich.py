@@ -986,7 +986,7 @@ def main():
                         help="Number of simultaneous downloads (max 3 for tempfile.ru)")
     parser.add_argument("-p", "--path", type=str, default=".", 
                         help="Base directory in which album(s) will be downloaded. Defaults to current.")
-    parser.add_argument("--with_album_id", action=argparse.BooleanOptionalAction,
+    parser.add_argument("--with_album_id", action='store_true',
                         help="Include the myzuka album ID in the directory name.")
     parser.add_argument("-v", "--version", action="version", version="%(prog)s, version: " + str(version))
 
