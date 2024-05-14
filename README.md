@@ -21,24 +21,25 @@ TODO:
 
 BUGS:
 * it is more difficult to interrupt the script with ctrl-c in Windows with latests Python version, even with [this bug](https://bugs.python.org/issue42296) corrected.
+* must use urllib3<2 with "requests" module, see [this bug](https://github.com/psf/requests/issues/6443) 
 
 Install:
-* install python 3 (tested with 3.6 and 3.9) if not already present on your distrib. For Windows, see [here](https://www.python.org/downloads/windows/)
-* install required modules. Use your standard repo for linux, for Windows do in an administrator command prompt:
+* install python 3 (tested with 3.6, 3.9, 3.12) if not already present on your distrib. For Windows, see [here](https://www.python.org/downloads/windows/) or install from the Windows Store.
+* install required modules. Use your standard repo or the command line below for linux, for Windows do in an administrator command prompt:
 
 ```sh
-python -m pip install BeautifulSoup4 Pysocks requests cfscrape rich
+python -m pip install BeautifulSoup4 Pysocks rich requests cfscrape urllib3<2
 ```
 
 Notes: 
-* you don't need to install requests and cfscrape if you set "userequests" to "0" at the start of the script. They are only usefull if you want to download through Tor socks proxy due to cloudflare more ofently detecting the script as a bot with urllib.request (even with the same useragent).
+* you don't need to install "requests", "cfscrape" and "urllib3" if you set "userequests" to "0" at the start of the script. They are only usefull if you want to download through Tor socks proxy due to cloudflare more ofently detecting the script as a bot with urllib.request (even with the same useragent).
 * you need rich >= 10.0.0
 
 Usage:
 * Just give it an album or artist url from http://myzuka.club/ as argument, see below:
 
 ```
-Python script to download albums from http://myzuka.club, version 5.10.
+Python script to download albums from http://myzuka.club, version 5.12.
 
 ------------------------------------------------------------------------------------------------------------------
 ################## To download an album, give it an url with '/Album/' in it #####################################
