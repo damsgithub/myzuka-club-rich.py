@@ -24,9 +24,14 @@ covers_name = "cover.jpg"
 warning_color = "bold yellow"
 error_color = "bold red"
 ok_color = "bold green"
+debug = 0
 debug_color = "bold blue"
+socks_proxy = ""
+socks_port = ""
+timeout = 10
 min_retry_delay = 3
 max_retry_delay = 10
+nb_conn = 3
 
 import re
 import sys
@@ -112,6 +117,13 @@ errors_console = Console()
 #errors_text = Text()
 progress_table = Table.grid(expand=True)
 dl_progress = Progress()
+
+event = threading.Event()
+
+# "event" not being global, we need to define this function in this scope
+def signal_handler(signum, frame):
+    event.set()
+    color_message("SIGINT received, waiting to exit threads", error_color)
 
 
 def reset_errors():
@@ -267,7 +279,7 @@ def dl_status(file_name, dlded_size, real_size):
     return status
 
 
-def download_cover(page_content, url, debug, socks_proxy, socks_port, timeout, task_id, event):
+def download_cover(page_content, url, task_id):
     # download album's cover(s)
     cover_url_re = re.compile('<img alt=".+?" itemprop="image" src="(.+?)"/>')
     cover_url_match = cover_url_re.search(page_content)
@@ -280,17 +292,17 @@ def download_cover(page_content, url, debug, socks_proxy, socks_port, timeout, t
     if not cover_url:
         color_message("** No cover found for this album **", warning_color)
     else:
-        download_file(cover_url, covers_name, debug, socks_proxy, socks_port, timeout, task_id, event)
+        download_file(cover_url, covers_name, task_id)
 
 
-def get_base_url(url, debug):
+def get_base_url(url):
     # get website base address to preprend it to images, songs and albums relative urls'
     base_url = url.split("//", 1)
     base_url = base_url[0] + "//" + base_url[1].split("/", 1)[0]
     return base_url
 
 
-def open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_header):
+def open_url(url, data, range_header):
     if socks_proxy and socks_port:
         socks.set_default_proxy(
             socks.SOCKS5, socks_proxy, socks_port, True
@@ -403,8 +415,8 @@ def open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_he
         return u
 
 
-def get_page_soup(url, data, debug, socks_proxy, socks_port, timeout, event):
-    page = open_url(url, debug, socks_proxy, socks_port, timeout, event, data=data, range_header=None)
+def get_page_soup(url, data):
+    page = open_url(url, data=data, range_header=None)
     if not page:
         return None
     if not userequests:
@@ -415,7 +427,7 @@ def get_page_soup(url, data, debug, socks_proxy, socks_port, timeout, event):
     return page_soup
 
 
-def prepare_album_dir(page_url, page_content, base_path, debug, with_album_id):
+def prepare_album_dir(page_url, page_content, base_path, with_album_id):
     # get album infos from html page content
     artist = ""
     title = ""
@@ -508,7 +520,7 @@ def get_filename_from_cd(cd):
     return fname[0]
 
 
-def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_id: TaskID, event):
+def download_file(url, file_name, task_id: TaskID):
     process_id = os.getpid()
     try:
         real_size = -1
@@ -516,7 +528,7 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
         dlded_size = 0
         block_sz = 8192
 
-        u = open_url(url, debug, socks_proxy, socks_port, timeout, event, data=None, range_header=None)
+        u = open_url(url, data=None, range_header=None)
         if not u:
             return -1
 
@@ -585,7 +597,7 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
 
             range_header = "bytes=%s-%s" % (dlded_size, real_size)
             data = None
-            u = open_url(url, debug, socks_proxy, socks_port, timeout, event, data, range_header)
+            u = open_url(url, data, range_header)
             if not u:
                 return -1
 
@@ -709,7 +721,7 @@ def download_file(url, file_name, debug, socks_proxy, socks_port, timeout, task_
         return -1
 
 
-def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id: TaskID, event) -> None:
+def download_song(num_and_url, task_id: TaskID) -> None:
     process_id = os.getpid()
 
     m = re.match(r"^(\d+)-(.+)", num_and_url)
@@ -727,7 +739,7 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
             file_name = ""
             file_url = ""
 
-            page_soup = get_page_soup(url, None, debug, socks_proxy, socks_port, timeout, event)
+            page_soup = get_page_soup(url, None)
             if not page_soup:
                 if debug:
                     color_message("** %s: Unable to get song's page soup, retrying **" 
@@ -742,10 +754,10 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
 
             # prepend base url if necessary
             if re.match(r"^/", file_url):
-                file_url = get_base_url(url, debug) + file_url
+                file_url = get_base_url(url) + file_url
 
             # download song
-            ret = download_file(file_url, file_name, debug, socks_proxy, socks_port, timeout, task_id, event)
+            ret = download_file(file_url, file_name, task_id)
             if ret == -1:
                 if debug:
                     color_message(
@@ -778,11 +790,11 @@ def download_song(num_and_url, debug, socks_proxy, socks_port, timeout, task_id:
             pass
 
 
-def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event):
+def download_album(url, base_path, with_album_id):
     reset_errors()
     reset_progress()
 
-    page_soup = get_page_soup(url, None, debug, socks_proxy, socks_port, timeout, event)
+    page_soup = get_page_soup(url, None)
     if not page_soup:
         color_message("** Unable to get album's page soup **", error_color)
         return
@@ -792,19 +804,14 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     # We need to convert them back with html.unescape.
     page_content = html.unescape(page_content)
 
-    album_dir = prepare_album_dir(url, page_content, base_path, debug, with_album_id)
+    album_dir = prepare_album_dir(url, page_content, base_path, with_album_id)
 
     os.chdir(album_dir)
 
     download_cover(
         page_content,
         url,
-        debug,
-        socks_proxy,
-        socks_port,
-        timeout,
         dl_progress.add_task("download", filename=covers_name, start=False),
-        event,
     )
 
     # create list of album's songs
@@ -840,7 +847,7 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
 
         # prepend base url if necessary
         if re.match(r"^/", link["href"]):
-            link["href"] = get_base_url(url, debug) + link["href"]
+            link["href"] = get_base_url(url) + link["href"]
 
         # add song url and number in array
         songs_links.append(str(tracknum) + "-" + link["href"])
@@ -890,7 +897,7 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
             with ThreadPoolExecutor(max_workers=nb_conn) as pool:
                 for num_and_url in songs_links:
                     task_id = dl_progress.add_task("download", filename=num_and_url.split("/")[-1], start=False)
-                    pool.submit(download_song, num_and_url, debug, socks_proxy, socks_port, timeout, task_id, event)
+                    pool.submit(download_song, num_and_url, task_id)
                     if event.is_set():
                         # color_message("** download_album: IS SET", error_color)
                         raise KeyboardInterrupt
@@ -922,8 +929,8 @@ def download_album(url, base_path, debug, socks_proxy, socks_port, timeout, nb_c
     layout["left"].update(Panel(infos_table))
 
 
-def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event):
-    page_soup = get_page_soup(url, str.encode(""), debug, socks_proxy, socks_port, timeout, event)
+def download_artist(url, base_path, with_album_id):
+    page_soup = get_page_soup(url, str.encode(""))
     if not page_soup:
         if debug:
             color_message("** Unable to get artist's page soup **", error_color)
@@ -941,7 +948,7 @@ def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_
 
     for album_link in albums_links:
         download_album(
-            get_base_url(url, debug) + album_link, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event
+            get_base_url(url) #+ album_link, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event
         )
         if event.is_set():
             # color_message("** download_artist: IS SET", error_color)
@@ -954,19 +961,14 @@ def download_artist(url, base_path, debug, socks_proxy, socks_port, timeout, nb_
 def main():
     global version
     global live
-    debug = 0
-    socks_proxy = ""
-    socks_port = ""
-    timeout = 10
-    nb_conn = 3
+    global nb_conn
+    global debug
+    global socks_proxy
+    global socks_port
+    global timeout
+    global event
+
     script_name = os.path.basename(sys.argv[0])
-
-    event = threading.Event()
-
-    # "event" not being global, we need to define this function in this scope
-    def signal_handler(signum, frame):
-        event.set()
-        color_message("SIGINT received, waiting to exit threads", error_color)
 
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -1019,12 +1021,10 @@ def main():
 
         if live:
             with Live(layout, refresh_per_second=4, vertical_overflow="visible"):
-                # modification and access of "global" variables do not work correctly under Windows 
-                # with multiprocessing, so I have to pass all these parameters to these functions...
                 if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
-                    download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
+                    download_artist(args.url, args.path, with_album_id)
                 elif re.search(r"/Album/.*", args.url, re.IGNORECASE):
-                    download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
+                    download_album(args.url, args.path, with_album_id)
                 else:
                     color_message(
                         "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
@@ -1032,9 +1032,9 @@ def main():
                     )
         else:
             if re.search(r"/Artist/.*", args.url, re.IGNORECASE):
-                download_artist(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
+                download_artist(args.url, args.path, with_album_id)
             elif re.search(r"/Album/.*", args.url, re.IGNORECASE):
-                download_album(args.url, args.path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event)
+                download_album(args.url, args.path, with_album_id)
             else:
                 color_message(
                     "** Error: unable to recognize url, it should contain '/Artist/' or '/Album/'! **",
