@@ -6,6 +6,7 @@
 # as published by Sam Hocevar.  See the COPYING file for more details.
 
 # Changelog:
+# 5.12: corrections for global variables, interactive mode
 # 5.10: corrections, cosmetic
 # 5.9: corrections, cosmetic
 # 5.8: better rich interface
@@ -17,7 +18,7 @@
 live = 1
 site = "http://myzuka.club"
 userequests = 1
-version = 5.10
+version = 5.12
 useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"
 min_page_size = 8192
 covers_name = "cover.jpg"
@@ -32,6 +33,7 @@ timeout = 10
 min_retry_delay = 3
 max_retry_delay = 10
 nb_conn = 3
+script_name = ""
 
 import re
 import sys
@@ -161,7 +163,7 @@ def reset_progress():
 ## END OF Rich definitions ##
 
 
-def script_help(version, script_name):
+def script_help():
     description = "Python script to download albums from %s, version %.2f." % (site, version)
     help_string = (description + """
 
@@ -176,11 +178,11 @@ Artist: Johann Sebastian Bach
 Album: The 6 Cello Suites (CD1)
 Year: 1994
 cover.jpg                                                 00.01 of 00.01 MB [100%%]
-05_johann_sebastian_bach_maurice_gendron_bwv1007_menuets_myzuka.mp3        07.04 of 07.04 MB [100%%]
-01_johann_sebastian_bach_maurice_gendron_bwv1007_prelude_myzuka.mp3        05.57 of 05.57 MB [100%%]
-03_johann_sebastian_bach_maurice_gendron_bwv1007_courante_myzuka.mp3        05.92 of 05.92 MB [100%%]
-06_johann_sebastian_bach_maurice_gendron_bwv1007_gigue_myzuka.mp3        04.68 of 04.68 MB [100%%]
-04_johann_sebastian_bach_maurice_gendron_bwv1007_sarabande_myzuka.mp3        07.06 of 07.06 MB [100%%]
+05_johann_sebastian_bach_maurice_gendron_bwv1007_menuets.mp3        07.04 of 07.04 MB [100%%]
+01_johann_sebastian_bach_maurice_gendron_bwv1007_prelude.mp3        05.57 of 05.57 MB [100%%]
+03_johann_sebastian_bach_maurice_gendron_bwv1007_courante.mp3        05.92 of 05.92 MB [100%%]
+06_johann_sebastian_bach_maurice_gendron_bwv1007_gigue.mp3        04.68 of 04.68 MB [100%%]
+04_johann_sebastian_bach_maurice_gendron_bwv1007_sarabande.mp3        07.06 of 07.06 MB [100%%]
 [...]
 
 It will create an "Artist - Album" directory in the path given as argument (or else in current
@@ -200,9 +202,9 @@ Artist: Johann Sebastian Bach
 Album: The 6 Cello Suites (CD1)
 Year: 1994
 cover.jpg                                                 00.01 of 00.01 MB [100%%]
-05_johann_sebastian_bach_maurice_gendron_bwv1007_menuets_myzuka.mp3        07.04 of 07.04 MB [100%%]
-01_johann_sebastian_bach_maurice_gendron_bwv1007_prelude_myzuka.mp3        05.57 of 05.57 MB [100%%]
-03_johann_sebastian_bach_maurice_gendron_bwv1007_courante_myzuka.mp3        05.92 of 05.92 MB [100%%]
+05_johann_sebastian_bach_maurice_gendron_bwv1007_menuets.mp3        07.04 of 07.04 MB [100%%]
+01_johann_sebastian_bach_maurice_gendron_bwv1007_prelude.mp3        05.57 of 05.57 MB [100%%]
+03_johann_sebastian_bach_maurice_gendron_bwv1007_courante.mp3        05.92 of 05.92 MB [100%%]
 [...]
 
 Artist: Johann Sebastian Bach
@@ -223,11 +225,11 @@ It will iterate on all albums of this artist.
 ################# Command line help ##############################################################################
 ------------------------------------------------------------------------------------------------------------------
 
-For more info, see https://github.com/damsgithub/myzuka-club.py
+For more info, see https://github.com/damsgithub/%s
 
 
 """
-        % (script_name, site, script_name, site)
+        % (script_name, site, script_name, site, script_name)
     )
     return help_string
 
@@ -456,7 +458,9 @@ def prepare_album_dir(page_url, page_content, base_path, with_album_id):
     artist_info = artist_info_re.search(page_content)
 
     if not artist_info:
-        artist = input("Unable to get ARTIST NAME. Please enter here: ")
+        color_message("Unable to get ARTIST NAME. Using -Unknown-", warning_color)
+        #artist = input("Unable to get ARTIST NAME. Please enter here: ")
+        artist = "Unknown"
     else:
         artist = artist_info.group(1)
 
@@ -471,7 +475,8 @@ def prepare_album_dir(page_url, page_content, base_path, with_album_id):
     title_info = title_info_re.search(page_content)
 
     if not title_info:
-        title = input("Unable to get ALBUM NAME. Please enter here: ")
+        color_message("Unable to get ALBUM NAME. Using -Unknown-", warning_color)
+        title = "Unknown"
     else:
         title = title_info.group(1)
 
@@ -483,7 +488,8 @@ def prepare_album_dir(page_url, page_content, base_path, with_album_id):
     if year_info and year_info.group(1):
         year = year_info.group(1)
     else:
-        year = input("Unable to get ALBUM YEAR. Please enter here (may leave blank): ")
+        color_message("Unable to get ALBUM YEAR.", warning_color)
+        year = ""
 
     infos_table.add_row(artist + " - " + title + " - " + year)
     layout["left"].update(Panel(infos_table))
@@ -965,13 +971,14 @@ def main():
     global socks_port
     global timeout
     global event
+    global script_name
 
     script_name = os.path.basename(sys.argv[0])
 
     signal.signal(signal.SIGINT, signal_handler)
 
     parser = argparse.ArgumentParser(
-        description=script_help(version, script_name), add_help=True, formatter_class=argparse.RawTextHelpFormatter
+        description=script_help(), add_help=True, formatter_class=argparse.RawTextHelpFormatter
     )
 
     parser.add_argument("-d", "--debug", type=int, choices=range(0, 3), default=0, 
