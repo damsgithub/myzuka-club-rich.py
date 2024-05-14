@@ -947,9 +947,7 @@ def download_artist(url, base_path, with_album_id):
                 albums_links.append(link["href"])
 
     for album_link in albums_links:
-        download_album(
-            get_base_url(url) #+ album_link, base_path, debug, socks_proxy, socks_port, timeout, nb_conn, with_album_id, event
-        )
+        download_album(get_base_url(url) + album_link, base_path, with_album_id)
         if event.is_set():
             # color_message("** download_artist: IS SET", error_color)
             raise KeyboardInterrupt
